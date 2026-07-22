@@ -1,0 +1,8 @@
+{
+  "name": "neon-visualizer",
+  "version": "1.0.0",
+  "dependencies": [
+    "pybind11",
+    "kissfft"
+  ]
+}
