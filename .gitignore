@@ -1,0 +1,19 @@
+# Build output
+build/
+vcpkg_installed/
+
+# IDE
+.vs/
+.vscode/
+*.user
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
