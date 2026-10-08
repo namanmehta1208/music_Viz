@@ -3,6 +3,7 @@
 #include <kiss_fft.h>
 #include <cmath>
 #include <vector>
+#include <stdexcept>
 
 namespace py = pybind11;
 
@@ -13,8 +14,19 @@ void process_in_place(py::array_t<float> input_array, py::array_t<float> output_
     auto input_buf = input_array.request();
     auto output_buf = output_array.request();
 
+    // Perform some basic checks
+    if (input_buf.ndim != 1)
+    {
+        throw std::runtime_error("Input array must be 1-dimensional.");
+    }
+    if(output_buf.size < 3)
+    {
+        throw std::runtime_error("Output array must have at least 3 elements for bass, mid, and treble.");
+    }
+
+
     float *in_ptr = static_cast<float *>(input_buf.ptr);
-    float *out_ptr = static_cast<float *>(output_buf.ptr);
+    float *out_ptr = output_array.mutable_data();
 
     // This one will be 2048 as our audio buffer is of this size
     int nfft = input_buf.size;
@@ -64,5 +76,6 @@ void process_in_place(py::array_t<float> input_array, py::array_t<float> output_
 PYBIND11_MODULE(audio_dsp, m)
 {
     m.doc() = "C++ Audio Processing Plugin using KissFFT";
-    m.def("process_in_place", &process_in_place, "Run FFT and group frequencies");
+    m.def("process_in_place", &process_in_place, "Run FFT and group frequencies",
+          py::arg("input_array"), py::arg("output_array").noconvert());
 }
