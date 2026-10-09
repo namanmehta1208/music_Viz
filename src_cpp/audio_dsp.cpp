@@ -1,5 +1,6 @@
 #include <cmath>
 #include <kiss_fft.h>
+#include <kiss_fftr.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <stdexcept>
@@ -10,11 +11,15 @@ namespace py = pybind11;
 class SpectrumAnalyzer {
 public:
   SpectrumAnalyzer(int nfft) {
+    if(nfft % 2 != 0) {
+      throw std::runtime_error("NFFT size must be even.");
+    }
+
     nfft_ = nfft;
-    cfg_ = kiss_fft_alloc(nfft_, 0, nullptr, nullptr);
+    cfg_ = kiss_fftr_alloc(nfft_, 0, nullptr, nullptr);
   }
 
-  ~SpectrumAnalyzer() { kiss_fft_free(cfg_); }
+  ~SpectrumAnalyzer() { kiss_fftr_free(cfg_); }
 
   void process(py::array_t<float> input_array,
                py::array_t<float> output_array) {
@@ -37,22 +42,15 @@ public:
     float *out_ptr = output_array.mutable_data();
 
     // Allocating KissFFT arrays
-    std::vector<kiss_fft_cpx> cx_in(nfft_);
-    std::vector<kiss_fft_cpx> cx_out(nfft_);
-
-    // preapring input data
-    for (int i = 0; i < nfft_; ++i) {
-      cx_in[i].r = in_ptr[i];
-      cx_in[i].i = 0.0f;
-    }
+    std::vector<kiss_fft_cpx> cx_out(nfft_ / 2 + 1);
 
     // Running the FFT
-    kiss_fft(cfg_, cx_in.data(), cx_out.data());
+    kiss_fftr(cfg_, in_ptr, cx_out.data());
 
     // Group the frequencies
     float bass = 0.0f, mid = 0.0f, treble = 0.0f;
 
-    // The first half of the output seems to have the usable frequency
+    // kiss_fftr returns bins 0..nfft/2;
     for (int i = 1; i < nfft_ / 2; ++i) {
       // Calculate the magnitude (amplitude) of this specific frequency bin
       float magnitude =
@@ -75,7 +73,7 @@ public:
 
 private:
   int nfft_;
-  kiss_fft_cfg cfg_;
+  kiss_fftr_cfg cfg_;
 };
 
 // Expose the function to Python
