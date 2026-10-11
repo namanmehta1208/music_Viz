@@ -5,6 +5,7 @@
 #include <pybind11/pybind11.h>
 #include <stdexcept>
 #include <vector>
+#include <numbers>
 
 namespace py = pybind11;
 
@@ -17,6 +18,16 @@ public:
 
     nfft_ = nfft;
     cfg_ = kiss_fftr_alloc(nfft_, 0, nullptr, nullptr);
+
+    window_.resize(nfft_);
+    windowed_.resize(nfft_);
+    cx_out_.resize(nfft_ / 2 + 1);
+
+    // Create a Hann window
+    // w[n] = 0.5 · (1 − cos(2π · n / (N − 1)))
+    for (int n = 0; n < nfft_; ++n) {
+      window_[n] = 0.5f * (1.0f - std::cos(2.0f * std::numbers::pi_v<float> * static_cast<float>(n) / (nfft_ - 1)));
+    }
   }
 
   ~SpectrumAnalyzer() { kiss_fftr_free(cfg_); }
@@ -41,11 +52,13 @@ public:
     float *in_ptr = static_cast<float *>(input_buf.ptr);
     float *out_ptr = output_array.mutable_data();
 
-    // Allocating KissFFT arrays
-    std::vector<kiss_fft_cpx> cx_out(nfft_ / 2 + 1);
+    // Apply the Hann window
+    for (int i = 0; i < nfft_; ++i) {
+      windowed_[i] = in_ptr[i] * window_[i];
+    }
 
     // Running the FFT
-    kiss_fftr(cfg_, in_ptr, cx_out.data());
+    kiss_fftr(cfg_, windowed_.data(), cx_out_.data());
 
     // Group the frequencies
     float bass = 0.0f, mid = 0.0f, treble = 0.0f;
@@ -54,7 +67,7 @@ public:
     for (int i = 1; i < nfft_ / 2; ++i) {
       // Calculate the magnitude (amplitude) of this specific frequency bin
       float magnitude =
-          std::sqrt(cx_out[i].r * cx_out[i].r + cx_out[i].i * cx_out[i].i);
+          std::sqrt(cx_out_[i].r * cx_out_[i].r + cx_out_[i].i * cx_out_[i].i);
 
       // rough grouping based on the index i (need to tuen this later) !!!
       if (i < 10)
@@ -74,6 +87,9 @@ public:
 private:
   int nfft_;
   kiss_fftr_cfg cfg_;
+  std::vector<float> window_;
+  std::vector<float> windowed_;
+  std::vector<kiss_fft_cpx> cx_out_;
 };
 
 // Expose the function to Python
