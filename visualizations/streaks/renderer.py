@@ -16,6 +16,8 @@ from pathlib import Path
 import moderngl
 import numpy as np
 
+from ..base import FULLSCREEN_VERT
+
 SHADER_DIR = Path(__file__).parent / "shaders"
 
 # How far each blur reaches, per bloom level. Wider horizontally, because
@@ -34,7 +36,7 @@ class StreakRenderer:
         self.aberration = aberration
         self.exposure = exposure
 
-        vert = load_shader("fullscreen.vert")
+        vert = FULLSCREEN_VERT.read_text()
         # The shader needs the array size at compile time, so patch it in.
         streaks_src = re.sub(
             r"#define NUM_BANDS \d+",

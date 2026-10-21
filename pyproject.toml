@@ -8,6 +8,7 @@ dependencies = [
     "moderngl-window>=3.1.1",
     "numpy",
     "sounddevice",
+    "textual>=8.2.8",
 ]
 
 [tool.ruff]

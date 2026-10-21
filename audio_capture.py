@@ -1,5 +1,74 @@
+import os
+
 import sounddevice as sd
 import numpy as np
+
+# Inputs whose name contains one of these record what the speakers play
+# instead of a microphone. Earlier entries win. "pulse"/"pipewire" only count
+# because PULSE_SOURCE points them at the monitor (set before importing
+# sounddevice in the entry scripts).
+LOOPBACK_NAMES = [
+    "pulse",  # Linux: PulseAudio / PipeWire
+    "pipewire",
+    "monitor",
+    "stereo mix",  # Windows: Realtek and others
+    "what u hear",  # Windows: Creative
+    "wave out",
+    "loopback",
+    "blackhole",  # macOS virtual devices
+    "soundflower",
+]
+
+# The same device can appear under several host APIs; prefer them in this
+# order (unknown APIs and WDM-KS, which is often flaky, come last).
+HOSTAPI_PREFERENCE = [
+    "Windows WASAPI",
+    "Core Audio",
+    "ALSA",
+    "Windows DirectSound",
+    "MME",
+]
+
+
+def find_loopback_device():
+    """Pick the input that records what the speakers play.
+
+    Set MUSIC_VIZ_DEVICE to a device index or part of its name to override
+    the choice (`python -m sounddevice` lists them). Returns the device's
+    info dict from sounddevice (index, name, default_samplerate, ...).
+    """
+    override = os.environ.get("MUSIC_VIZ_DEVICE")
+    if override:
+        device = int(override) if override.isdigit() else override
+        return sd.query_devices(device, "input")
+
+    def rank(info):
+        name = info["name"].lower()
+        name_rank = next(
+            i for i, keyword in enumerate(LOOPBACK_NAMES) if keyword in name
+        )
+        api = sd.query_hostapis(info["hostapi"])["name"]
+        api_rank = (
+            HOSTAPI_PREFERENCE.index(api)
+            if api in HOSTAPI_PREFERENCE
+            else len(HOSTAPI_PREFERENCE)
+        )
+        return name_rank, api_rank
+
+    candidates = [
+        info
+        for info in sd.query_devices()
+        if info["max_input_channels"] > 0
+        and any(keyword in info["name"].lower() for keyword in LOOPBACK_NAMES)
+    ]
+    if candidates:
+        return min(candidates, key=rank)
+
+    print(
+        "Warning: no loopback input found (e.g. 'Stereo Mix' on Windows), "
+        "falling back to the default input, which is probably a microphone."
+    )
+    return sd.query_devices(kind="input")
 
 
 class AudioCapture:

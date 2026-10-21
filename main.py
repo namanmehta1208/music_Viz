@@ -3,8 +3,7 @@ os.environ["PULSE_SOURCE"] = "@DEFAULT_MONITOR@"   # capture what the speakers p
 
 
 
-import sounddevice as sd
-from audio_capture import AudioCapture
+from audio_capture import AudioCapture, find_loopback_device
 import time
 import numpy as np
 import audio_dsp as dsp
@@ -25,15 +24,19 @@ def db_to_height(db):
 np.set_printoptions(suppress=True, linewidth=200)
 
 # checking samplerate
-device_id = "pulse" # 20
-device_info = sd.query_devices(device_id, "input")
+device_info = find_loopback_device()
+device_id = device_info["index"]
 print(f"Device {device_id} info: {device_info}")
 correct_sample_rate = int(device_info["default_samplerate"])
 
 print(f"Device {device_id} requires a sample rate of {correct_sample_rate}Hz")
 
 
-audioBuf = AudioCapture(device=device_id, channels=2, sample_rate=correct_sample_rate)
+audioBuf = AudioCapture(
+    device=device_id,
+    channels=min(2, device_info["max_input_channels"]),
+    sample_rate=correct_sample_rate,
+)
 
 analyzer = dsp.SpectrumAnalyzer(NFFT, correct_sample_rate, NUM_BANDS, F_MIN, F_MAX)    # once: FFT setup + Hann window
 bands = np.zeros(NUM_BANDS, dtype=np.float32)          # once: reused every frame
