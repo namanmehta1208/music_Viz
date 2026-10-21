@@ -1,6 +1,12 @@
 import numpy as np
 import audio_dsp as dsp
 
+SAMPLE_RATE = 48000
+NFFT = 2048
+NUM_BANDS = 16
+F_MIN = 30
+F_MAX = 16000
+
 
 def tone(freq_hz=1000, sr=48000, n=2048):
     """Generates a sine wave tone at a given frequency."""
@@ -33,18 +39,15 @@ def noise(analyzer, n=2048, seed=7):
 
 
 def main():
-    analyzer = dsp.SpectrumAnalyzer(2048)
+    analyzer = dsp.SpectrumAnalyzer(NFFT, SAMPLE_RATE, NUM_BANDS, F_MIN, F_MAX)
 
-    for freq in [1000, 100, 5000]:
-        result = test(analyzer, freq)
-        print(f"For test frequency {freq}Hz, the output is: {result}")
+    for freq in [120, 850, 6000]:
+        result = test(analyzer, freq, SAMPLE_RATE, NFFT)
+        print(f"{freq:>5} Hz → loudest band {np.argmax(result):2d}   {np.round(result, 1)}")
 
-    result = noise(analyzer)
-    print(f"For Noise, the output is: {result}")
-
-
-
-
+    result = noise(analyzer, NFFT)
+    print(f"Noise → {np.round(result, 2)}")
+    
 
 if __name__ == "__main__":
     main()
